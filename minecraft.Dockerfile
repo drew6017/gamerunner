@@ -1,5 +1,5 @@
 # https://hub.docker.com/repository/docker/drew6017/gamerunner/general
-FROM alpine:edge
+FROM alpine
 
 SHELL ["sh", "-exc"]
 RUN apk add --no-cache \
@@ -50,10 +50,23 @@ set stateflags
 set colonparsing
 EOF
 
+echo "app:!::0:::::" >> /etc/shadow
+echo "app:x:1000:1000:game runner user:/dev/null:/sbin/nologin" >> /etc/passwd
+echo "app:x:1000:app" >> /etc/group
+
 cat <<'EOF' > /entry.sh
 #!/bin/sh
-addgroup -Sg ${APP_GID:-1000} app
-adduser -SDH -s /sbin/nologin -h /dev/null -u ${APP_UID:-1000} -G app app
+
+if [ -n "$TZ" ]; then
+  ln -sfn /usr/share/zoneinfo/$TZ /etc/localtime
+  echo $TZ > /etc/timezone
+fi
+
+export APP_UID=${APP_UID:-1000} \
+       APP_GID=${APP_GID:-1000}
+sed -i- "s/^\(app:[^:]*\):[0-9]*:[0-9]*/\1:$APP_UID:$APP_GID/" /etc/passwd
+sed -i- "s/^\(app:[^:]*\):[0-9]*/\1:$APP_GID/" /etc/group
+
 echo "$(((${STOP_TIMEOUT:-30}*1000)+10000))" > /etc/s6/app/timeout-finish
 [ -n "$CHOWN_APP" ] && find /data/* -not \( -user app -a -group app \) -a -not \( -path /data/ssh -o -path /data/start.sh \) -exec chown -R app:app {} +
 
@@ -85,7 +98,7 @@ cat <<EOF > sshd/run
 #!/bin/sh
 mkdir -p /data/ssh
 
-#[ -f /data/ssh/ssh_host_ecdsa_key ] ||   ssh-keygen -t ecdsa -b 256 -N '' -f /data/ssh/ssh_host_ecdsa_key
+[ -f /data/ssh/ssh_host_ecdsa_key ] ||   ssh-keygen -t ecdsa -b 384 -N '' -f /data/ssh/ssh_host_ecdsa_key
 [ -f /data/ssh/ssh_host_ed25519_key ] || ssh-keygen -t ed25519 -N '' -f /data/ssh/ssh_host_ed25519_key
 [ -f /data/ssh/ssh_host_rsa_key ] ||     ssh-keygen -t rsa -b 4096 -N '' -f /data/ssh/ssh_host_rsa_key
 
@@ -106,7 +119,7 @@ PermitRootLogin prohibit-password
 PasswordAuthentication no
 AuthenticationMethods publickey
 AuthorizedKeysFile /data/ssh/authorized_keys
-#HostKey /data/ssh/ssh_host_ecdsa_key
+HostKey /data/ssh/ssh_host_ecdsa_key
 HostKey /data/ssh/ssh_host_ed25519_key
 HostKey /data/ssh/ssh_host_rsa_key
 
