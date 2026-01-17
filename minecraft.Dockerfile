@@ -1,4 +1,4 @@
-# https://hub.docker.com/repository/docker/drew6017/gamerunner/general
+# hub.docker.com/r/drew6017/gamerunner
 FROM alpine
 
 SHELL ["sh", "-exc"]
@@ -10,7 +10,7 @@ RUN apk add --no-cache \
 	htop \
 	curl \
 	ca-certificates \
-	openjdk21-jre-headless \
+	openjdk25-jre-headless \
 	bash \
 	bash-completion \
 	util-linux-misc \
